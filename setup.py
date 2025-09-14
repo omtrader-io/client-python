@@ -1,9 +1,9 @@
 # coding: utf-8
 
 """
-    Omtrader Trader's API
+    OMTrader Trader's API
 
-    Omtrader Trader's API docs
+    OMTrader Trader's API docs
 
     The version of the OpenAPI document: 1.0
     Contact: support@omtrader.io
@@ -21,7 +21,7 @@ from setuptools import setup, find_packages  # noqa: H301
 #
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
-NAME = "openapi-client"
+NAME = "omtrader-client"
 VERSION = "1.0.0"
 PYTHON_REQUIRES = ">= 3.9"
 REQUIRES = [
@@ -29,23 +29,24 @@ REQUIRES = [
     "python-dateutil >= 2.8.2",
     "pydantic >= 2",
     "typing-extensions >= 4.7.1",
+    "requests >= 2.25.0",
+    "websocket-client >= 1.0.0",
 ]
 
 setup(
     name=NAME,
     version=VERSION,
-    description="Omtrader Trader&#39;s API",
+    description="OMTrader Python SDK - REST and WebSocket API Client",
     author="API Support",
     author_email="support@omtrader.io",
     url="",
-    keywords=["OpenAPI", "OpenAPI-Generator", "Omtrader Trader's API"],
+    keywords=["OMTrader", "Trading", "API", "REST", "WebSocket", "SDK", "Python"],
     install_requires=REQUIRES,
-    packages=find_packages(exclude=["test", "tests"]),
+    packages=find_packages(exclude=["test", "tests", "openapi_client"]),
     include_package_data=True,
-    license="Omtrader License",
+    license="MIT License",
     long_description_content_type='text/markdown',
     long_description="""\
-    Omtrader Trader&#39;s API docs
+    OMTrader Python SDK - The official Python client library for the OMTrader REST and WebSocket APIs.
     """,  # noqa: E501
-    package_data={"openapi_client": ["py.typed"]},
 )
