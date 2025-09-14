@@ -1,0 +1,6 @@
+# Requirements for running the examples
+# The main SDK should already be installed
+
+# Optional dependencies for enhanced examples
+requests>=2.25.1
+python-dateutil>=2.8.2 
