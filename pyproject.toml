@@ -1,20 +1,22 @@
 [project]
-name = "openapi_client"
+name = "omtrader-client"
 version = "1.0.0"
-description = "Omtrader Trader's API"
+description = "OMTrader Python SDK - REST and WebSocket API Client"
 authors = [
   {name = "API Support",email = "support@omtrader.io"},
 ]
-license = {text = "Omtrader License"}
+license = {text = "MIT License"}
 readme = "README.md"
-keywords = ["OpenAPI", "OpenAPI-Generator", "Omtrader Trader's API"]
+keywords = ["OMTrader", "Trading", "API", "REST", "WebSocket", "SDK", "Python"]
 requires-python = ">=3.9"
 
 dependencies = [
   "urllib3 (>=2.1.0,<3.0.0)",
   "python-dateutil (>=2.8.2)",
   "pydantic (>=2)",
-  "typing-extensions (>=4.7.1)"
+  "typing-extensions (>=4.7.1)",
+  "requests (>=2.25.0)",
+  "websocket-client (>=1.0.0)"
 ]
 
 [project.urls]
@@ -41,7 +43,7 @@ extension-pkg-whitelist = "pydantic"
 
 [tool.mypy]
 files = [
-  "openapi_client",
+  "omtrader",
   #"test",  # auto-generated tests
   "tests", # hand-written tests
 ]
@@ -79,7 +81,7 @@ disallow_any_generics = true
 
 [[tool.mypy.overrides]]
 module = [
-  "openapi_client.configuration",
+  "omtrader.rest.configuration",
 ]
 warn_unused_ignores = true
 strict_equality = true
