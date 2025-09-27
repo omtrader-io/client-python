@@ -4,11 +4,12 @@ import os
 from omtrader import RESTClient
 
 # Initialize client
-client = RESTClient(api_key=os.environ["OMTRADER_API_KEY"])
+client = RESTClient(api_key=os.environ["OMTRADER_API_KEY"], trace=True)
 
 # Get account info
 account = client.get_account()
-print(f"Account: {account}")
+for key, value in account.model_dump().items():
+    print(f"{key}: {value}")
 
 # Account opening (demo structure - not executed)
 account_data = {
