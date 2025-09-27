@@ -31,9 +31,9 @@ print(f"Found {len(order_history)} historical orders")
 
 # Order management (demo - commented for safety)
 order_data = {
-    "account_id": 1,  # Get from account info
-    "user_id": 1,     # Get from account info  
-    "symbol_id": 1,   # Get from symbols list
+    "account_id": 11,  # Get from account info
+    "user_id": 16,     # Get from account info  
+    "symbol_id": 2,   # Get from symbols list
     "volume": 0.1,
     "order_price": 1.05,
     "side": 0,        # 0=Buy, 1=Sell

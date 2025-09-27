@@ -8,6 +8,13 @@ from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
+from pydantic import BaseModel
+
+from omtrader.rest.models.model_order import ModelOrder
+from omtrader.rest.models.model_position import ModelPosition
+from omtrader.rest.models.model_deal import ModelDeal
+from omtrader.rest.models.model_symbol import ModelSymbol
+from omtrader.rest.models.model_trade_account import ModelTradeAccount
 
 
 class EventMessageType(str, Enum):
@@ -25,6 +32,7 @@ class EventMessageType(str, Enum):
     # Market Data Subscription
     MARKET_SUBSCRIBE_SYMBOL = "market_subscribe_symbol"
     MARKET_UNSUBSCRIBE_SYMBOL = "market_unsubscribe_symbol"
+    MARKET_FEED = "market_feed"  # For binary market data
     
     # Account Management
     START_ACCOUNT_ALL = "start_account_all"
@@ -42,61 +50,96 @@ class EventMessageType(str, Enum):
     POSITIONS_OPEN = "positions_open"
     POSITIONS_UPDATE = "positions_update"
     POSITIONS_CLOSE = "positions_close"
+    
+    # Deal Events
+    DEALS_CREATE = "deals_create"
+    DEALS_UPDATE = "deals_update"
+    
 
 
-@dataclass
-class WebSocketMessage:
+class WebSocketMessage(BaseModel):
     """Base WebSocket message structure."""
     
     type: str
-    data: Optional[Dict[str, Any]] = None
+    data: Any = None  # Can be dict, int, str, etc.
     timestamp: Optional[datetime] = None
     
-    def __post_init__(self):
+    def __init__(self, **data):
+        super().__init__(**data)
         if self.timestamp is None:
             self.timestamp = datetime.utcnow()
 
 
-@dataclass
-class OrderUpdateMessage(WebSocketMessage):
-    """Order update WebSocket message."""
+class MarketDataTick(BaseModel):
+    """Market data tick structure for binary messages."""
     
-    order_id: Optional[str] = None
-    symbol: Optional[str] = None
-    status: Optional[str] = None
-    volume: Optional[float] = None
-    price: Optional[float] = None
+    symbol_id: int
+    bid: float
+    ask: float
+    last: float
+    volume: float
+    high: float
+    low: float
 
 
-@dataclass
-class PositionUpdateMessage(WebSocketMessage):
-    """Position update WebSocket message."""
+class ProfitUpdate(BaseModel):
+    """Profit update structure for binary messages.
+    Format: s,position_id,profit,total_profit
+    """
+    position_id: int
+    profit: float
+    total_profit: float
+
+
+class OrderMessage(WebSocketMessage):
+    """Order event message structure."""
     
-    position_id: Optional[str] = None
-    symbol: Optional[str] = None
-    status: Optional[str] = None
-    volume: Optional[float] = None
-    current_price: Optional[float] = None
-    profit: Optional[float] = None
+    type: EventMessageType
+    data: ModelOrder
 
 
-@dataclass
+class PositionMessage(WebSocketMessage):
+    """Position event message structure."""
+    
+    type: EventMessageType
+    data: ModelPosition
+
+
+class DealMessage(WebSocketMessage):
+    """Deal event message structure."""
+    
+    type: EventMessageType
+    data: ModelDeal
+
+
+
+
 class MarketDataMessage(WebSocketMessage):
-    """Market data WebSocket message."""
+    """Market data message structure."""
     
-    symbol: Optional[str] = None
-    bid: Optional[float] = None
-    ask: Optional[float] = None
-    timestamp: Optional[datetime] = None
+    type: EventMessageType = EventMessageType.MARKET_FEED
+    data: MarketDataTick
 
 
-@dataclass
+class InfoMessage(WebSocketMessage):
+    """Info message structure."""
+    
+    type: EventMessageType = EventMessageType.INFO
+    data: Dict[str, str]  # {"message": "info message"}
+
+
 class ErrorMessage(WebSocketMessage):
-    """Error WebSocket message."""
+    """Error message structure."""
     
-    error_code: Optional[str] = None
-    error_message: Optional[str] = None
-    details: Optional[Dict[str, Any]] = None
+    type: EventMessageType = EventMessageType.ERROR
+    data: Dict[str, str]  # {"message": "error message"}
+
+
+class SessionLogoutMessage(WebSocketMessage):
+    """Session logout message structure."""
+    
+    type: EventMessageType = EventMessageType.SESSION_LOGOUT
+    data: Dict[str, str]  # {"session_id": "session_id"}
 
 
 class WebSocketConnectionState(str, Enum):
@@ -109,8 +152,7 @@ class WebSocketConnectionState(str, Enum):
     FAILED = "failed"
 
 
-@dataclass
-class ConnectionInfo:
+class ConnectionInfo(BaseModel):
     """WebSocket connection information."""
     
     state: WebSocketConnectionState

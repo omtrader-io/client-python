@@ -1,6 +1,6 @@
 # OMTrader Python Client - REST & WebSocket APIs
 
-Welcome to the official Python client library for the OMTrader REST and WebSocket API. To get started, please see the [Getting Started](#getting-started) section below, view the [examples](examples/) directory for code snippets, or explore the comprehensive API documentation.
+Welcome to the official Python client library for the OMTrader REST and WebSocket APIs. To get started, please see the [Getting Started](#getting-started) section below, view the [examples](examples/) directory for code snippets, or explore the comprehensive API documentation.
 
 ## Prerequisites
 
@@ -33,104 +33,100 @@ client = RESTClient()  # Will use OMTRADER_API_KEY env var
 
 ## REST API Client
 
-Import the RESTClient:
+The `RESTClient` provides a unified interface to all OMTrader REST API endpoints, handling authentication, configuration, and providing convenient methods for all trading operations.
+
+### Quick Start
+
+Import and initialize the client:
 
 ```python
 from omtrader import RESTClient
-```
 
-Create a new client with your API key:
-
-```python
 client = RESTClient(api_key="<API_KEY>")
 ```
 
-### Using the Client
-
-Request data using client methods:
+Basic usage example:
 
 ```python
 # Get account information
 account = client.get_account()
 print(f"Balance: {account.balance}")
 
-# List current positions
-positions = client.list_positions()
-for position in positions:
-    print(f"Position {position.id}: {position.volume_current} lots")
-
-# List available symbols
-symbols = client.list_symbols()
-for symbol in symbols:
-    print(f"Symbol: {symbol.symbol}")
-
-# Get order history
-orders = client.list_orders_history()
-print(f"Found {len(orders)} historical orders")
-
-# Create a new order (example structure)
+# Create a market order
 order_data = {
     "account_id": 1,
     "user_id": 1,
     "symbol_id": 1,
     "volume": 0.01,
     "order_price": 1.2000,
-    "side": 0,  # 0=Buy, 1=Sell
-    "type": 0   # 0=Market order
+    "side": 0,  # Buy
+    "type": 0   # Market order
 }
-# order_id = client.create_order(order_data)  # Uncomment to execute
+order_id = client.create_order(order_data)
 ```
 
 ### Available Methods
 
-**Account Management:**
-- `get_account()` - Get account information
-- `open_account(data)` - Open new trading account
+The REST client provides comprehensive methods for:
 
-**Order Management:**
-- `list_orders()` - List current orders
-- `get_order(id)` - Get specific order
-- `create_order(data)` - Create new order
-- `update_order(id, data)` - Update existing order
-- `cancel_order(id)` - Cancel order
-- `list_orders_history()` - Get order history
+- Account Management (get_account, open_account)
+- Order Management (create_order, update_order, cancel_order, etc.)
+- Position Management (list_positions, update_position, close_position, etc.)
+- Market Data (list_symbols, get_symbol_ticks_history)
+- Trading History (list_deals, get_deal)
 
-**Position Management:**
-- `list_positions()` - List current positions
-- `get_position(id)` - Get specific position
-- `update_position(id, data)` - Update position
-- `close_position(id)` - Close position
-- `list_positions_history()` - Get position history
+## Important: Asynchronous Operation Model
 
-**Market Data:**
-- `list_symbols()` - List available trading symbols
-- `get_symbol(id)` - Get specific symbol details
-- `get_symbol_ticks_history(id, **params)` - Get historical tick data
+OMTrader uses an asynchronous operation model where:
+1. REST endpoints are used to submit operations and query current state
+2. WebSocket events provide real-time updates about operation status changes
+3. Operations (orders, positions, etc.) are processed asynchronously
 
-**Trading History:**
-- `list_deals()` - List completed deals
-- `get_deal(id)` - Get specific deal details
+This means you should:
+1. Set up WebSocket listeners before performing operations
+2. Use REST endpoints to submit operations
+3. Handle operation outcomes through WebSocket events
 
-## Debugging with RESTClient
+See [Asynchronous Operations Workflow](docs/async_workflow.md) for detailed explanation and examples.
 
-Sometimes you may find it useful to see the actual request and response details while working with the API. The `RESTClient` allows for this through its `trace=True` option:
+## Documentation
 
-```python
-client = RESTClient(api_key="<API_KEY>", trace=True)
-```
-
-When debug mode is enabled, the client will print out useful debugging information for each API request, including the request URL, headers sent, and response details.
+For detailed documentation of:
+- Available methods, parameters, and examples, see [REST Client Documentation](docs/rest_client.md)
+- Response objects and their properties, see [Models Documentation](docs/models.md)
+- Error handling and responses, see [Error Handling Documentation](docs/error_handling.md)
+- Asynchronous workflow and best practices, see [Async Workflow Documentation](docs/async_workflow.md)
 
 ## WebSocket Client
 
-The WebSocket client for real-time data streaming is coming soon. The client structure is prepared and will provide:
+The `WebSocketClient` provides real-time access to:
 
-- Real-time market data feeds
-- Live order and position updates
-- Account balance changes
+- Market data feeds
+- Order updates
+- Position changes
+- Account balance updates
 - Trade execution notifications
 
-Stay tuned for WebSocket functionality in upcoming releases.
+### Quick Start
+
+```python
+from omtrader import WebSocketClient
+from omtrader.websocket.models import EventMessageType
+
+def handle_order_update(data):
+    print(f"Order update: {data}")
+
+# Initialize client
+ws = WebSocketClient(api_key="your_api_key")
+
+# Subscribe to order updates
+ws.subscribe(EventMessageType.ORDERS_UPDATE, handle_order_update)
+
+# Connect and start receiving data
+ws.connect()
+```
+
+For detailed documentation of all event types, message formats, and examples, see [WebSocket Client Documentation](docs/websocket_client.md).
 
 ## Error Handling
 
@@ -153,7 +149,7 @@ except Exception as e:
 
 ## Examples
 
-Check out the [examples](examples/) directory for comprehensive code samples covering all API endpoints and common use cases.
+Check out the [examples](examples/) directory for code samples covering all API endpoints.
 
 ## Contributing
 
