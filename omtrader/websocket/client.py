@@ -19,11 +19,20 @@ from .models import (
     WebSocketMessage,
     WebSocketConnectionState,
     ConnectionInfo,
-    OrderUpdateMessage,
-    PositionUpdateMessage,
+    OrderMessage,
+    PositionMessage,
+    DealMessage,
     MarketDataMessage,
-    ErrorMessage
+    MarketDataTick,
+    ProfitUpdate,
+    InfoMessage,
+    ErrorMessage,
+    SessionLogoutMessage
 )
+
+from omtrader.rest.models.model_order import ModelOrder
+from omtrader.rest.models.model_position import ModelPosition
+from omtrader.rest.models.model_deal import ModelDeal
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +89,11 @@ class WebSocketClient:
         
         # Set default host if not provided
         if not host:
-            host = os.environ.get("OMTRADER_WS_HOST", "ws://api.omtrader.io")
+            host = os.environ.get("OMTRADER_WS_HOST", "wss://api.omtrader.io")
+            
+        # Convert http(s):// to wss:// if needed
+        if host.startswith('http://') or host.startswith('https://'):
+            host = 'wss://' + host.split('://', 1)[1]
         
         self.host = host
         self.trace = trace
@@ -104,8 +117,87 @@ class WebSocketClient:
         self._access_token: Optional[str] = None
         self._session_id: Optional[str] = None
 
+    def _login(self) -> None:
+        """Login to get access token and session ID."""
+        login_url = f"{self.host.replace('wss://', 'https://')}/api/v1/oauth2/login"
+        
+        params = {
+            'remember_me': 'false',
+            'grant_type': 'api_key'
+        }
+        
+        headers = {
+            'API-Key': self.api_key,
+            'Accept': 'application/json'
+        }
+        
+        if self.trace:
+            logger.info(f"Authenticating with OMTrader API at {login_url}")
+        
+        try:
+            response = requests.post(
+                login_url, 
+                params=params, 
+                headers=headers, 
+                allow_redirects=True,
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                token_data = response.json()
+                if token_data.get('success') and token_data.get('data'):
+                    data = token_data['data']
+                    self._access_token = data.get('access_token')
+                    self._session_id = data.get('session_id')
+                    
+                    if not self._access_token or not self._session_id:
+                        raise Exception("Login successful but missing access_token or session_id")
+                        
+                    if self.trace:
+                        logger.info(f"Authentication successful")
+                        logger.info(f"Access token: {self._access_token[:10]}...")
+                        logger.info(f"Session ID: {self._session_id}")
+                else:
+                    raise Exception("Login successful but no data in response")
+            else:
+                raise Exception(f"OAuth2 login failed: {response.status_code} - {response.text}")
+                
+        except requests.RequestException as e:
+            raise Exception(f"Failed to authenticate: {e}")
+            
+    def _validate_session(self) -> None:
+        """Validate session before WebSocket connection."""
+        if not self._session_id:
+            raise ValueError("No session ID available")
+            
+        validate_url = f"{self.host.replace('wss://', 'https://')}/ws/v1/{self._session_id}"
+        
+        try:
+            response = requests.post(validate_url, timeout=30.0)
+            if response.status_code != 200:
+                if response.status_code == 400 and "session is already used" in response.text:
+                    raise Exception("Session is already in use in another tab")
+                raise Exception(f"Session validation failed: {response.status_code} - {response.text}")
+                
+            if self.trace:
+                logger.info("Session validated successfully")
+                
+        except requests.RequestException as e:
+            raise Exception(f"Failed to validate session: {e}")
+
     def connect(self) -> None:
         """Establish WebSocket connection"""
+        # First login to get access token and session ID
+        if not self._access_token or not self._session_id:
+            self._login()
+            
+        # Validate session
+        self._validate_session()
+        
+        # Build WebSocket URL
+        self._connect_url = f"{self.host}/ws/v1?session_id={self._session_id}&access_token={self._access_token}"
+        
+        # Create WebSocket connection
         self.ws = websocket.WebSocketApp(
             self._connect_url,
             on_open=self._on_open,
@@ -113,6 +205,9 @@ class WebSocketClient:
             on_error=self._on_error,
             on_close=self._on_close
         )
+        
+        if self.trace:
+            logger.info(f"Connecting to WebSocket at {self._connect_url}")
         
         ws_thread = threading.Thread(target=self.ws.run_forever)
         ws_thread.daemon = True
@@ -139,25 +234,132 @@ class WebSocketClient:
         self._start_heartbeat()
         self._process_event_queue()
 
-    def _on_message(self, ws, message: str) -> None:
+    def _decode_binary_message(self, binary_data: bytes) -> Optional[str]:
+        """
+        Decode binary message to text.
+        All binary messages are UTF-8 encoded strings.
+        """
+        try:
+            return binary_data.decode('utf-8')
+        except Exception as e:
+            logger.error(f"Failed to decode binary message: {e}")
+            return None
+
+    def _parse_market_data(self, text: str) -> Optional[MarketDataTick]:
+        """
+        Parse market data message.
+        Format: symbolId,bid,ask,last,volume,high,low
+        """
+        try:
+            parts = text.split(',')
+            if len(parts) >= 7:
+                return MarketDataTick(
+                    symbol_id=int(parts[0]),
+                    bid=float(parts[1]),
+                    ask=float(parts[2]),
+                    last=float(parts[3]),
+                    volume=float(parts[4]),
+                    high=float(parts[5]),
+                    low=float(parts[6])
+                )
+            return None
+        except Exception as e:
+            logger.error(f"Failed to parse market data: {e}")
+            return None
+
+    def _parse_profit_update(self, text: str) -> Optional[ProfitUpdate]:
+        """
+        Parse profit update message.
+        Format: s,position_id,profit,total_profit
+        """
+        try:
+            parts = text.split(',')
+            if len(parts) >= 4:
+                return ProfitUpdate(
+                    position_id=int(parts[1]),
+                    profit=float(parts[2]),
+                    total_profit=float(parts[3])
+                )
+            return None
+        except Exception as e:
+            logger.error(f"Failed to parse profit update: {e}")
+            return None
+
+    def _on_message(self, ws, message: str | bytes) -> None:
         """Handle incoming WebSocket messages"""
         # Handle heartbeat response
         if message == "10":
             return
             
         try:
-            if message.startswith("s,"):
-                # Handle profit updates
-                self._handle_profit_update(message)
+            # Handle binary messages
+            if isinstance(message, bytes):
+                # First decode binary to text
+                text = self._decode_binary_message(message)
+                if not text:
+                    return
+                
+                # Then check message type and parse accordingly
+                if text.startswith('s,'):
+                    # Profit update message
+                    data = self._parse_profit_update(text)
+                    if data and EventMessageType.POSITIONS_UPDATE in self.callbacks:
+                        for callback in self.callbacks[EventMessageType.POSITIONS_UPDATE]:
+                            callback(data)
+                else:
+                    # Market data message
+                    data = self._parse_market_data(text)
+                    if data and EventMessageType.MARKET_FEED in self.callbacks:
+                        msg = MarketDataMessage(type=EventMessageType.MARKET_FEED, data=data)
+                        for callback in self.callbacks[EventMessageType.MARKET_FEED]:
+                            callback(msg)
                 return
                 
             # Parse JSON message
             data = json.loads(message)
             msg_type = data.get("type")
+            msg_data = data.get("data")
             
+            if not msg_type or msg_type not in EventMessageType.__members__.values():
+                logger.error(f"Invalid message type: {msg_type}")
+                return
+                
+            # Create appropriate message object based on type
+            if msg_type == EventMessageType.ORDERS_PLACE:
+                msg = OrderMessage(type=msg_type, data=ModelOrder.from_dict(msg_data))
+            elif msg_type == EventMessageType.ORDERS_UPDATE:
+                msg = OrderMessage(type=msg_type, data=ModelOrder.from_dict(msg_data))
+            elif msg_type == EventMessageType.ORDERS_CANCEL:
+                msg = OrderMessage(type=msg_type, data=ModelOrder.from_dict(msg_data))
+            elif msg_type == EventMessageType.ORDERS_EXPIRED:
+                msg = OrderMessage(type=msg_type, data=ModelOrder.from_dict(msg_data))
+            elif msg_type == EventMessageType.ORDERS_REJECTED:
+                msg = OrderMessage(type=msg_type, data=ModelOrder.from_dict(msg_data))
+            elif msg_type == EventMessageType.ORDERS_REQUOTED:
+                msg = OrderMessage(type=msg_type, data=ModelOrder.from_dict(msg_data))
+            elif msg_type == EventMessageType.POSITIONS_OPEN:
+                msg = PositionMessage(type=msg_type, data=ModelPosition.from_dict(msg_data))
+            elif msg_type == EventMessageType.POSITIONS_UPDATE:
+                msg = PositionMessage(type=msg_type, data=ModelPosition.from_dict(msg_data))
+            elif msg_type == EventMessageType.POSITIONS_CLOSE:
+                msg = PositionMessage(type=msg_type, data=ModelPosition.from_dict(msg_data))
+            elif msg_type == EventMessageType.DEALS_CREATE:
+                msg = DealMessage(type=msg_type, data=ModelDeal.from_dict(msg_data))
+            elif msg_type == EventMessageType.DEALS_UPDATE:
+                msg = DealMessage(type=msg_type, data=ModelDeal.from_dict(msg_data))
+            elif msg_type == EventMessageType.INFO:
+                msg = InfoMessage(type=msg_type, data=msg_data)
+            elif msg_type == EventMessageType.ERROR:
+                msg = ErrorMessage(type=msg_type, data=msg_data)
+            elif msg_type == EventMessageType.SESSION_LOGOUT:
+                msg = SessionLogoutMessage(type=msg_type, data=msg_data)
+            else:
+                msg = WebSocketMessage(type=msg_type, data=msg_data)
+            
+            # Call registered callbacks
             if msg_type in self.callbacks:
                 for callback in self.callbacks[msg_type]:
-                    callback(data.get("data"))
+                    callback(msg)
                     
         except json.JSONDecodeError:
             logger.error(f"Failed to parse message: {message}")
@@ -176,29 +378,78 @@ class WebSocketClient:
         if self.reconnect_required:
             self.connect()
 
-    def send(self, event_type: EventMessageType, data: Any = None) -> None:
-        """Send WebSocket message"""
-        message = {
-            "type": event_type,
-            "data": data
-        }
+    def send(self, message: WebSocketMessage) -> None:
+        """
+        Send WebSocket message.
         
+        Args:
+            message: A WebSocketMessage instance or subclass
+        """
         if not self.connected:
             self.event_queue.append(message)
             return
             
         try:
-            self.ws.send(json.dumps(message))
+            # Convert message to dict and send
+            msg_dict = {
+                "type": message.type,
+                "data": message.data.to_dict() if hasattr(message.data, "to_dict") else message.data
+            }
+            self.ws.send(json.dumps(msg_dict))
         except Exception as e:
             logger.error(f"Error sending message: {e}")
             self.event_queue.append(message)
+            
+    def send_market_subscribe(self, symbol_id: int) -> None:
+        """
+        Subscribe to market data for a symbol.
+        
+        Args:
+            symbol_id: The ID of the symbol to subscribe to
+        """
+        # According to docs, just send the symbol ID as data
+        msg = WebSocketMessage(
+            type=EventMessageType.MARKET_SUBSCRIBE_SYMBOL,
+            data=symbol_id  # Not a dict, just the ID
+        )
+        self.send(msg)
+        
+    def send_market_unsubscribe(self, symbol_id: int) -> None:
+        """
+        Unsubscribe from market data for a symbol.
+        
+        Args:
+            symbol_id: The ID of the symbol to unsubscribe from
+        """
+        # According to docs, just send the symbol ID as data
+        msg = WebSocketMessage(
+            type=EventMessageType.MARKET_UNSUBSCRIBE_SYMBOL,
+            data=symbol_id  # Not a dict, just the ID
+        )
+        self.send(msg)
+        
+    def start_account_updates(self) -> None:
+        """Start receiving account-wide updates."""
+        msg = WebSocketMessage(
+            type=EventMessageType.START_ACCOUNT_ALL,
+            data=None
+        )
+        self.send(msg)
+        
+    def stop_account_updates(self) -> None:
+        """Stop receiving account-wide updates."""
+        msg = WebSocketMessage(
+            type=EventMessageType.STOP_ACCOUNT_ALL,
+            data=None
+        )
+        self.send(msg)
 
     def _process_event_queue(self) -> None:
         """Process queued events after reconnection"""
         while self.event_queue:
             message = self.event_queue.pop(0)
             try:
-                self.ws.send(json.dumps(message))
+                self.send(message)  # Use our send method which handles message conversion
             except Exception as e:
                 logger.error(f"Error sending queued message: {e}")
                 self.event_queue.insert(0, message)

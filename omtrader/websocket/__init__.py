@@ -8,10 +8,15 @@ from .client import WebSocketClient
 from .models import (
     WebSocketMessage,
     EventMessageType,
-    OrderUpdateMessage,
-    PositionUpdateMessage,
+    OrderMessage,
+    PositionMessage,
+    DealMessage,
     MarketDataMessage,
+    MarketDataTick,
+    ProfitUpdate,
+    InfoMessage,
     ErrorMessage,
+    SessionLogoutMessage,
     WebSocketConnectionState,
     ConnectionInfo
 )
@@ -20,10 +25,15 @@ __all__ = [
     "WebSocketClient",
     "WebSocketMessage",
     "EventMessageType",
-    "OrderUpdateMessage",
-    "PositionUpdateMessage", 
+    "OrderMessage",
+    "PositionMessage",
+    "DealMessage",
     "MarketDataMessage",
+    "MarketDataTick",
+    "ProfitUpdate",
+    "InfoMessage",
     "ErrorMessage",
+    "SessionLogoutMessage",
     "WebSocketConnectionState",
     "ConnectionInfo"
 ]

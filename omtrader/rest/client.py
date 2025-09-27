@@ -159,7 +159,7 @@ class RESTClient:
         
         # Set default host if not provided
         if not host:
-            host = os.environ.get("OMTRADER_HOST", "http://api.omtrader.io")
+            host = os.environ.get("OMTRADER_HOST", "https://api.omtrader.io")
         
         self.host = host
         self.debug = debug

@@ -693,10 +693,12 @@ class OrdersApi:
             _request_timeout=_request_timeout
         )
         response_data.read()
-        return self.api_client.response_deserialize(
+        resp_data =self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+        print(f"resp_data: {resp_data}")
+        return resp_data
 
 
     @validate_call
