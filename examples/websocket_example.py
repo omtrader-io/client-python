@@ -19,9 +19,9 @@ class WebSocketTester:
         
     def connect(self):
         """Connect to WebSocket with credentials"""
-        # Get API key from environment or user input
-        api_key = input("API Key: ") or os.getenv("OMTRADER_API_KEY")
-        host = input("WebSocket Host (default: wss://api.omtrader.io): ") or os.getenv("OMTRADER_WS_HOST")
+        # Get API key and host from environment
+        api_key = os.getenv("OMTRADER_API_KEY")
+        host = os.getenv("OMTRADER_HOST")
         
         # Create and connect client
         self.client = WebSocketClient(

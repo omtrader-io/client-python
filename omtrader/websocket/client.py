@@ -89,11 +89,13 @@ class WebSocketClient:
         
         # Set default host if not provided
         if not host:
-            host = os.environ.get("OMTRADER_WS_HOST", "wss://api.omtrader.io")
+            host = os.environ.get("OMTRADER_HOST", "https://api.omtrader.io")
             
-        # Convert http(s):// to wss:// if needed
-        if host.startswith('http://') or host.startswith('https://'):
+        # Convert http(s):// to ws(s):// if needed
+        if host.startswith('https://'):
             host = 'wss://' + host.split('://', 1)[1]
+        elif host.startswith('http://'):
+            host = 'ws://' + host.split('://', 1)[1]
         
         self.host = host
         self.trace = trace
@@ -119,8 +121,14 @@ class WebSocketClient:
 
     def _login(self) -> None:
         """Login to get access token and session ID."""
-        login_url = f"{self.host.replace('wss://', 'https://')}/api/v1/oauth2/login"
-        
+        # Convert ws(s):// back to http(s):// for REST API calls
+        login_url = self.host
+        if login_url.startswith('wss://'):
+            login_url = 'https://' + login_url.split('://', 1)[1]
+        elif login_url.startswith('ws://'):
+            login_url = 'http://' + login_url.split('://', 1)[1]
+        login_url = f"{login_url}/api/v1/oauth2/login"
+        print(login_url)
         params = {
             'remember_me': 'false',
             'grant_type': 'api_key'
@@ -170,7 +178,13 @@ class WebSocketClient:
         if not self._session_id:
             raise ValueError("No session ID available")
             
-        validate_url = f"{self.host.replace('wss://', 'https://')}/ws/v1/{self._session_id}"
+        # Convert ws(s):// back to http(s):// for REST API calls
+        validate_url = self.host
+        if validate_url.startswith('wss://'):
+            validate_url = 'https://' + validate_url.split('://', 1)[1]
+        elif validate_url.startswith('ws://'):
+            validate_url = 'http://' + validate_url.split('://', 1)[1]
+        validate_url = f"{validate_url}/ws/v1/{self._session_id}"
         
         try:
             response = requests.post(validate_url, timeout=30.0)
@@ -219,7 +233,7 @@ class WebSocketClient:
             while self.connected:
                 try:
                     self.ws.send("9")  # Heartbeat ping
-                    time.sleep(30)  # 30 second interval
+                    time.sleep(10)  # 10 second interval
                 except:
                     break
                     
