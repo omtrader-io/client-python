@@ -4,14 +4,14 @@ Welcome to the official Python client library for the OMTrader REST and WebSocke
 
 ## Prerequisites
 
-Before installing the OMTrader Python client, ensure your environment has Python 3.8 or higher.
+Before installing the OMTrader Python client, ensure your environment has Python 3.9 or higher.
 
 ## Install
 
 Since the package is not yet published to PyPI, install directly from GitHub:
 
 ```bash
-pip install git+https://github.com/your-username/omtrader-client-python.git
+pip install git+https://github.com/omtrader-io/client-python.git
 ```
 
 ## Getting Started
