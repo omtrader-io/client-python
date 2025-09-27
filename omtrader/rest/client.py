@@ -355,7 +355,12 @@ class RESTClient:
                 - time_expiration (str, optional): Expiration time
                 
         Returns:
-            str: Order ID of the created order
+            HttpHttpResponse: API response object containing:
+                - code: HTTP status code (200/201 for success)
+                - success: Whether the request was successful
+                - data: Response data if successful
+                - error: Error message if failed
+                - message: Detailed message
             
         Raises:
             ApiException: If the order creation fails
@@ -391,7 +396,7 @@ class RESTClient:
             See MessagingUptOrder model for required fields.
             
         Returns:
-            str: Updated order ID
+            str: API response containing the operation result
             
         Raises:
             ApiException: If the update fails
@@ -419,7 +424,7 @@ class RESTClient:
             If None, will automatically create with order details.
             
         Returns:
-            str: Cancelled order ID
+            str: API response containing the operation result
             
         Raises:
             ApiException: If the cancellation fails
@@ -477,7 +482,7 @@ class RESTClient:
             approval_data: Approval parameters
             
         Returns:
-            str: Approved order ID
+            str: API response containing the operation result
             
         Raises:
             ApiException: If the approval fails
@@ -550,7 +555,7 @@ class RESTClient:
             See MessagingUptPosition model for required fields.
             
         Returns:
-            str: Updated position ID
+            str: API response containing the operation result
             
         Raises:
             ApiException: If the update fails
@@ -578,7 +583,7 @@ class RESTClient:
             If None, will automatically create with position details.
             
         Returns:
-            str: Closed position ID
+            str: API response containing the operation result
             
         Raises:
             ApiException: If the close fails
